@@ -20,7 +20,7 @@ task_queue = Queue()
 def action_reply_current(page, auto_send=False):
     try:
         print("Finding tweet...")
-        page.keyboard.press("j")
+        page.keyboard.press("j") # I think I may need to remove this. I need to test more before confirming
         
 
         # 1. Smart Focus Detection
