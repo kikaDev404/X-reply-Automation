@@ -1,4 +1,4 @@
-# X-Reply Automation
+# X-Reply Automation - Alpha
 
 This project automates the process of replying to posts on **X (formerly Twitter)**, helping content creators save time and streamline their engagement workflow. Once set up, the automation will scan your feed (or any section you manually navigate to) and automatically generate replies to visible posts.
 
@@ -33,10 +33,10 @@ You can configure your LLM provider using an `.env` file.
 
 # <u>Sample .env File</u>
 
-LLM_URL=
+<code>LLM_URL= 
 MODEL_NAME=
 LLM_KEY=
-HOST_ADDRESS=
+HOST_ADDRESS=</code>
 
 
 <br>
@@ -66,7 +66,7 @@ HOST_ADDRESS=
 
 1. Add randomized time intervals between replies to avoid detection as automation by X.  
 2. Perform deeper testing across different feed types and browsers.
-3. Remeber, this is a work in progress project.
+
 
 <br><br>
 
@@ -74,3 +74,5 @@ HOST_ADDRESS=
 
 This tool is designed to assist content creators while keeping user control at the core.  
 Always test responsibly, and ensure you comply with X’s automation rules.
+
+<h4>Remeber, this is a work in progress project.</h4>
