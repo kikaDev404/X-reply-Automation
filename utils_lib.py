@@ -1,0 +1,16 @@
+def process_ai_response(response):
+    if "<think>" in response and "</think>" in response:
+        # Extract everything cleanly
+        before_think = response.split("<think>")[0]
+        think_content = response.split("<think>")[1].split("</think>")[0]
+        after_think = response.split("</think>")[1]
+
+        # Format the think block for display
+        formatted_think = f"> 💭 *{think_content.strip()}*"
+
+        # Combine all parts
+        return after_think.strip()
+    else:
+        return response
+    
+    
