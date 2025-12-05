@@ -6,6 +6,11 @@ from utils_lib import*
 from twitter_actions import*
 from dotenv import load_dotenv
 import os
+from nicegui import ui
+from threading import Thread
+import threading
+import sys
+
 
 load_dotenv(override=True)
 # --- CONFIGURATION ---
@@ -17,75 +22,6 @@ client = OpenAI(base_url=LLM_URL, api_key=LLM_API_KEY)
 # Queue for thread-safe actions
 task_queue = Queue()
 
-def action_reply_current(page, auto_send=False):
-    try:
-        print("Finding tweet...")
-        page.keyboard.press("j") # I think I may need to remove this. I need to test more before confirming
-        
-
-        # 1. Smart Focus Detection
-        # If you clicked inside a tweet, the active element might be a span/div.
-        # look for the closest PARENT that is a tweet.
-        active = page.evaluate_handle("document.activeElement")
-        is_tweet = active.evaluate("el => el.closest('article[data-testid=\"tweet\"]') !== null")
-
-        if is_tweet:
-            # Get the text from the tweet container
-            tweet_element = active.evaluate_handle("el => el.closest('article[data-testid=\"tweet\"]')")
-            tweet_text = tweet_element.inner_text()
-        else:
-            # Fallback: Pick first visible tweet
-            print("No specific tweet focused. Picking top one.")
-            tweet = page.locator('article[data-testid="tweet"]').first
-            tweet.scroll_into_view_if_needed()
-            tweet_text = tweet.inner_text()
-            tweet.click() # Click it so 'j' works next time
-
-        print(f"Generating reply for: {tweet_text[:40]}...")
-
-        # 2. Open Reply Box
-        page.keyboard.press("r")
-        
-        # Robust wait for the box to appear (max 2 sec)
-        try:
-            reply_box = page.get_by_role("textbox", name="Post text")
-            reply_box.wait_for(state="visible", timeout=3000)
-        except PlaywrightTimeout:
-            print("Reply box didn't open. Press 'j' to select a tweet first.")
-            return
-
-        # 3. Generate & Type
-        reply_text = generate_reply(tweet_text, client)
-        print(f"Typing: {reply_text}")
-        
-        reply_box.click()
-        type_like_human(page, process_ai_response(reply_text))
-
-        # 4. Auto-send logic
-        if auto_send:
-            print("Sending...")
-            page.wait_for_timeout(10_000)
-            reply_box.click()
-            send_button = page.locator('[data-testid="tweetButton"]')
-            send_button.click()
-
-            # Wait for the reply box to disappear (confirmation it was sent)
-            # instead of a hard sleep
-            try:
-                reply_box.wait_for(state="hidden", timeout=5000)
-                print("Reply sent.")
-            except PlaywrightTimeout:
-                print("Warning: Reply box still open? Check for errors.")
-
-            print("Moving to next...")
-            page.keyboard.press("j")
-            action_reply_current(page, auto_send=True)
-        else:
-            print("Draft ready. Review and click Reply.")
-
-    except Exception as e:
-        print(f"Error in action: {e}")
-
 def on_press(key):
     """Runs in background thread → signals main thread."""
     if key == keyboard.Key.f9:
@@ -93,7 +29,7 @@ def on_press(key):
     elif key == keyboard.Key.f10:
         task_queue.put(("reply", True))
 
-def main():
+def start_app():
     with sync_playwright() as p:
         try:
             # Ensure this URL matches your Chrome debugger port
@@ -114,15 +50,30 @@ def main():
                 try:
                     task, auto_send = task_queue.get(timeout=0.1)
                     if task == "reply":
-                        action_reply_current(page, auto_send)
+                        action_reply_current(client,page, auto_send)
                 except Empty:
                     continue
                 except KeyboardInterrupt:
                     break
 
         except Exception as e:
-            print(f"Connection failed: {e}")
+            print(f"Connection failed: {e}", flush=True)
             print("Run browser in debug mode")
 
-if __name__ == "__main__":
-    main()
+log_box = ui.log(max_lines=300).classes("w-full h-96")
+
+
+def start_main():
+    count = sum(1 for t in threading.enumerate() if t.name == "XAuto")
+    if count == 0:
+        Thread(target=start_app, daemon=True, name="XAuto").start()
+        log_in_ui(log_box,"Playwright thread started")
+    else:
+        log_in_ui(log_box,"Existing Thread found")
+
+
+
+ui.button("Start", on_click=start_main)
+ui.run()
+
+
