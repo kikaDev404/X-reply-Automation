@@ -1,55 +1,31 @@
-import time
-import random
 from queue import Queue, Empty
 from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeout
 from pynput import keyboard
 from openai import OpenAI
 from utils_lib import*
+from twitter_actions import*
+from dotenv import load_dotenv
+import os
 
+load_dotenv(override=True)
 # --- CONFIGURATION ---
-OLLAMA_URL = "http://127.0.0.1:11434/v1"
-MODEL_NAME = "qwen3:8b"  # Update to your specific model name
+LLM_URL = os.getenv('LLM_URL')
+LLM_API_KEY =  os.getenv('LLM_KEY') # Update to your specific model name
 
-client = OpenAI(base_url=OLLAMA_URL, api_key="ollama")
+client = OpenAI(base_url=LLM_URL, api_key=LLM_API_KEY)
 
 # Queue for thread-safe actions
 task_queue = Queue()
 
-def generate_reply(tweet_text):
-    """Generates a short, casual crypto-twitter reply."""
-    prompt = f"""
-    You are a crypto native Twitter user.
-    Reply to this tweet casually, lowercase, maybe a bit witty or agreeing. 
-    Keep it under 280 chars. No hashtags. Never add any hashtags or mentions.
-    
-    Tweet: "{tweet_text}"
-    """
-    try:
-        response = client.chat.completions.create(
-            model=MODEL_NAME,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.7
-        )
-        return response.choices[0].message.content.strip().strip('"')
-    except Exception as e:
-        print(f"⚠️ AI Error: {e}")
-        return  
-
-def type_like_human(page, text):
-    """Types text with random delays to mimic human behavior."""
-    for char in text:
-        page.keyboard.type(char)
-        time.sleep(random.uniform(0.01, 0.05))
-
 def action_reply_current(page, auto_send=False):
     try:
         print("Finding tweet...")
-        page.keyboard.press("j")
+        page.keyboard.press("j") # I think I may need to remove this. I need to test more before confirming
         
 
         # 1. Smart Focus Detection
         # If you clicked inside a tweet, the active element might be a span/div.
-        # We look for the closest PARENT that is a tweet.
+        # look for the closest PARENT that is a tweet.
         active = page.evaluate_handle("document.activeElement")
         is_tweet = active.evaluate("el => el.closest('article[data-testid=\"tweet\"]') !== null")
 
@@ -79,7 +55,7 @@ def action_reply_current(page, auto_send=False):
             return
 
         # 3. Generate & Type
-        reply_text = generate_reply(tweet_text)
+        reply_text = generate_reply(tweet_text, client)
         print(f"Typing: {reply_text}")
         
         reply_box.click()
@@ -88,10 +64,8 @@ def action_reply_current(page, auto_send=False):
         # 4. Auto-send logic
         if auto_send:
             print("Sending...")
-            page.wait_for_timeout(30_000)
+            page.wait_for_timeout(10_000)
             reply_box.click()
-            # dialog = page.locator('div[role="dialog"]')
-            # send_button = dialog.locator('[data-testid="tweetButtonInline"]')
             send_button = page.locator('[data-testid="tweetButton"]')
             send_button.click()
 
@@ -105,6 +79,7 @@ def action_reply_current(page, auto_send=False):
 
             print("Moving to next...")
             page.keyboard.press("j")
+            action_reply_current(page, auto_send=True)
         else:
             print("Draft ready. Review and click Reply.")
 
@@ -122,7 +97,7 @@ def main():
     with sync_playwright() as p:
         try:
             # Ensure this URL matches your Chrome debugger port
-            browser = p.chromium.connect_over_cdp("http://localhost:9222")
+            browser = p.chromium.connect_over_cdp(os.getenv('HOST_ADDRESS'))
             context = browser.contexts[0]
             page = context.pages[0]
 
@@ -137,7 +112,6 @@ def main():
             # MAIN LOOP
             while True:
                 try:
-                    # Get task from queue with short timeout to allow loop to spin
                     task, auto_send = task_queue.get(timeout=0.1)
                     if task == "reply":
                         action_reply_current(page, auto_send)
@@ -148,7 +122,7 @@ def main():
 
         except Exception as e:
             print(f"Connection failed: {e}")
-            print("Run Chrome with: --remote-debugging-port=9222")
+            print("Run browser in debug mode")
 
 if __name__ == "__main__":
     main()

@@ -1,3 +1,4 @@
-playwright==
-pynput==
-openai==
+playwright==1.56.0
+pynput==1.8.1
+openai==2.8.1
+dotenv==0.9.9
