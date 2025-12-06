@@ -52,7 +52,7 @@ def start_app():
                 try:
                     task, auto_send = task_queue.get(timeout=0.1)
                     if task == "reply":
-                        action_reply_current(client,page, auto_send)
+                        action_reply_current(client,page, stop_event,auto_send)
                 except Empty:
                     continue
                 except KeyboardInterrupt:

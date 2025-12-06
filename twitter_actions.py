@@ -25,7 +25,7 @@ def type_like_human(page, text):
         page.keyboard.type(char)
         time.sleep(random.uniform(0.01, 0.05))
 
-def action_reply_current(agent,page, auto_send=False):
+def action_reply_current(agent,page, stop_event,auto_send=False, ):
     try:
         print("Finding tweet...")
         page.keyboard.press("j") # I think I may need to remove this. I need to test more before confirming
@@ -37,7 +37,7 @@ def action_reply_current(agent,page, auto_send=False):
         active = page.evaluate_handle("document.activeElement")
         is_tweet = active.evaluate("el => el.closest('article[data-testid=\"tweet\"]') !== null")
 
-        if is_tweet:
+        if is_tweet and not stop_event.is_set():
             # Get the text from the tweet container
             tweet_element = active.evaluate_handle("el => el.closest('article[data-testid=\"tweet\"]')")
             tweet_text = tweet_element.inner_text()
@@ -52,7 +52,10 @@ def action_reply_current(agent,page, auto_send=False):
         print(f"Generating reply for: {tweet_text[:40]}...")
 
         # 2. Open Reply Box
-        page.keyboard.press("r")
+        if not stop_event.is_set():
+            page.keyboard.press("r")
+        else:
+            return
         
         # Robust wait for the box to appear (max 2 sec)
         try:
@@ -63,19 +66,25 @@ def action_reply_current(agent,page, auto_send=False):
             return
 
         # 3. Generate & Type
-        reply_text = generate_reply(tweet_text, agent)
-        print(f"Typing: {reply_text}")
+        if not stop_event.is_set():
+            reply_text = generate_reply(tweet_text, agent)
+            print(f"Typing: {reply_text}")
+        else:
+            return
         
         reply_box.click()
         type_like_human(page, process_ai_response(reply_text))
 
         # 4. Auto-send logic
-        if auto_send:
+        if auto_send and not stop_event.is_set():
             print("Sending...")
             page.wait_for_timeout(10_000)
             reply_box.click()
             send_button = page.locator('[data-testid="tweetButton"]')
-            send_button.click()
+            if not stop_event.is_set():
+                send_button.click()
+            else:
+                return
 
             # Wait for the reply box to disappear (confirmation it was sent)
             # instead of a hard sleep
@@ -87,7 +96,9 @@ def action_reply_current(agent,page, auto_send=False):
 
             print("Moving to next...")
             page.keyboard.press("j")
-            action_reply_current(agent,page, auto_send=True)
+
+            if not stop_event.is_set():
+                action_reply_current(agent,page,stop_event, auto_send=True)
         else:
             print("Draft ready. Review and click Reply.")
 
