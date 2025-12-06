@@ -59,7 +59,7 @@ def start_app():
                     break
                 
             listener.stop()
-            log_in_ui(log_box, "Playwright thread stopped.")
+            log_in_ui(log_box, "XAuto thread stopped.")
 
         except Exception as e:
             print(f"Connection failed: {e}", flush=True)
@@ -73,7 +73,7 @@ def start_main():
     if count == 0:
         stop_event.clear()
         Thread(target=start_app, daemon=True, name="XAuto").start()
-        log_in_ui(log_box,"Playwright thread started")
+        log_in_ui(log_box,"XAuto thread started")
     else:
         log_in_ui(log_box,"Existing Thread found")
 
@@ -83,10 +83,19 @@ def stop_main():
         log_in_ui(log_box,"Application is not running")
     else:
         stop_event.set()
-        log_in_ui(log_box, "Stop signal sent to Playwright thread")
+        log_in_ui(log_box, "Stop signal sent to XAuto thread")
+
+def start_auto_reply():
+    if get_thread_count("XAuto") != 0:
+        log_in_ui(log_box, "Application is now running in Auto reply mode")
+        task_queue.put(("reply", True))
+    else:
+        log_in_ui(log_box, "Start the application before starting auto replying")
+
 
 ui.button("Start", on_click=start_main)
 ui.button("Stop", on_click=stop_main)
+ui.button("Start Auto Reply", on_click=start_auto_reply)
 ui.run(native=True)
 
 
