@@ -1,4 +1,5 @@
 import sys
+import threading
 
 def process_ai_response(response):
     if "<think>" in response and "</think>" in response:
@@ -19,5 +20,8 @@ def log_in_ui(log_box,msg):
     log_box.push(msg)
     sys.stdout.write(msg + "\n")
     sys.stdout.flush()
-    
+
+def get_thread_count(process_name : str):
+    count = sum(1 for t in threading.enumerate() if t.name == process_name)
+    return count
     

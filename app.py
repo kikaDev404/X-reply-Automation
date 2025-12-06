@@ -21,6 +21,8 @@ client = OpenAI(base_url=LLM_URL, api_key=LLM_API_KEY)
 
 # Queue for thread-safe actions
 task_queue = Queue()
+stop_event = threading.Event()
+
 
 def on_press(key):
     """Runs in background thread → signals main thread."""
@@ -46,7 +48,7 @@ def start_app():
             listener.start()
 
             # MAIN LOOP
-            while True:
+            while not stop_event.is_set():
                 try:
                     task, auto_send = task_queue.get(timeout=0.1)
                     if task == "reply":
@@ -55,6 +57,9 @@ def start_app():
                     continue
                 except KeyboardInterrupt:
                     break
+                
+            listener.stop()
+            log_in_ui(log_box, "Playwright thread stopped.")
 
         except Exception as e:
             print(f"Connection failed: {e}", flush=True)
@@ -64,16 +69,24 @@ log_box = ui.log(max_lines=300).classes("w-full h-96")
 
 
 def start_main():
-    count = sum(1 for t in threading.enumerate() if t.name == "XAuto")
+    count = get_thread_count("XAuto")
     if count == 0:
+        stop_event.clear()
         Thread(target=start_app, daemon=True, name="XAuto").start()
         log_in_ui(log_box,"Playwright thread started")
     else:
         log_in_ui(log_box,"Existing Thread found")
 
-
+def stop_main():
+    thread_count = get_thread_count("XAuto")
+    if thread_count == 0 :
+        log_in_ui(log_box,"Application is not running")
+    else:
+        stop_event.set()
+        log_in_ui(log_box, "Stop signal sent to Playwright thread")
 
 ui.button("Start", on_click=start_main)
-ui.run()
+ui.button("Stop", on_click=stop_main)
+ui.run(native=True)
 
 
